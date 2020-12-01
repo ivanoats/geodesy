@@ -1,21 +1,20 @@
-var path = require('path');
-var webpack = require('webpack');
+const path = require('path');
 module.exports = {
-    entry:'./bundle.js',
-    mode: 'production',
+    entry:  './bundle.js',
+    mode:   'production',
     output: {
-        path: path.resolve(__dirname, 'build'),
-        filename: 'geodesy.js',
-        library: 'geodesy',
-        libraryTarget:'umd'
+        path:          path.resolve(__dirname, 'build'),
+        filename:      'geodesy.js',
+        library:       'geodesy',
+        libraryTarget: 'umd',
     },
     module: {
         rules: [
-          {
-            test: /\.js?$/,
-            use: ['babel-loader'],
-            exclude: /node_modules/,
-          }
-        ]
-      }
-    };
+            {
+                test:    /\.js?$/,
+                use:     [ 'babel-loader' ],
+                exclude: /node_modules/,
+            },
+        ],
+    },
+};
