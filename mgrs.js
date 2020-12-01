@@ -68,13 +68,15 @@ class Mgrs {
      *   const mgrsRef = new Mgrs(31, 'U', 'D', 'Q', 48251, 11932); // 31U DQ 48251 11932
      */
     constructor(zone, band, e100k, n100k, easting, northing, datum=LatLonEllipsoidal.datums.WGS84) {
-        if (!(1<=Number(zone) && Number(zone)<=60)) throw new RangeError(`MGRS zone ‘${zone}’ out of range`);
+        if (!(1<=zone && zone<=60)) throw new RangeError(`invalid MGRS zone ‘${zone}’`);
+        if (zone != parseInt(zone)) throw new RangeError(`invalid MGRS zone ‘${zone}’`);
         const errors = []; // check & report all other possible errors rather than reporting one-by-one
         if (band.length!=1 || latBands.indexOf(band) == -1) errors.push(`invalid MGRS band ‘${band}’`);
         if (e100k.length!=1 || e100kLetters[(zone-1)%3].indexOf(e100k) == -1) errors.push(`invalid MGRS 100km grid square column ‘${e100k}’ for zone ${zone}`);
         if (n100k.length!=1 || n100kLetters[0].indexOf(n100k) == -1) errors.push(`invalid MGRS 100km grid square row ‘${n100k}’`);
         if (isNaN(Number(easting))) errors.push(`invalid MGRS easting ‘${easting}’`);
         if (isNaN(Number(northing))) errors.push(`invalid MGRS northing ‘${northing}’`);
+        if (!datum || datum.ellipsoid==undefined) errors.push(`unrecognised datum ‘${datum}’`);
         if (errors.length > 0) throw new RangeError(errors.join(', '));
 
         this.zone = Number(zone);
@@ -115,7 +117,7 @@ class Mgrs {
         const latBand = (latBands.indexOf(this.band)-10)*8;
 
         // get northing of bottom of band, extended to include entirety of bottom-most 100km square
-        const nBand = Math.floor(new LatLonEllipsoidal(latBand, 0).toUtm().northing/100e3)*100e3;
+        const nBand = Math.floor(new LatLonEllipsoidal(latBand, 3).toUtm().northing/100e3)*100e3;
 
         // 100km grid square row letters repeat every 2,000km north; add enough 2,000km blocks to
         // get into required band
@@ -285,6 +287,10 @@ class Latlon_Utm_Mgrs extends LatLonEllipsoidal {
      *
      * Shadow of LatLon.toUtm, returning Utm augmented with toMgrs() method.
      *
+     * @param   {number} [zoneOverride] - Use specified zone rather than zone within which point lies;
+     *          note overriding the UTM zone has the potential to result in negative eastings, and
+     *          perverse results within Norway/Svalbard exceptions (this is unlikely to be relevant
+     *          for MGRS, but is needed as Mgrs passes through the Utm class).
      * @returns {Utm}   UTM coordinate.
      * @throws  {Error} If point not valid, if point outside latitude range.
      *
@@ -292,8 +298,8 @@ class Latlon_Utm_Mgrs extends LatLonEllipsoidal {
      *   const latlong = new LatLon(48.8582, 2.2945);
      *   const utmCoord = latlong.toUtm(); // 31 N 448252 5411933
      */
-    toUtm() {
-        const utm = super.toUtm();
+    toUtm(zoneOverride=undefined) {
+        const utm = super.toUtm(zoneOverride);
         return new Utm_Mgrs(utm.zone, utm.hemisphere, utm.easting, utm.northing, utm.datum, utm.convergence, utm.scale);
     }
 

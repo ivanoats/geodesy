@@ -1,11 +1,12 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
-/* Geodesy Test Harness - latlon-nvector-spherical                    (c) Chris Veness 2014-2019  */
+/* Geodesy Test Harness - latlon-nvector-spherical                    (c) Chris Veness 2014-2020  */
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
 
 import LatLon, { Nvector, Dms } from '../latlon-nvector-spherical.js';
 
 if (typeof window == 'undefined') { // node
-    import('chai').then(chai => global.should = chai.should());
+    const chai = await import('chai');
+    global.should = chai.should();
 } else {                            // browser
     window.should = chai.should();
 }
@@ -56,6 +57,10 @@ describe('latlon-nvector-spherical', function() {
     describe('@examples (NvectorSpherical)', function() {
         test('constructor/toString', () => new Nvector(0.5000, 0.5000, 0.7071).toString().should.equal('[0.500,0.500,0.707]'));
         test('toLatLon',             () => new Nvector(0.5000, 0.5000, 0.7071).toLatLon().toString('d', 1).should.equal('45.0°N, 045.0°E'));
+    });
+
+    describe('constructor with strings', function() {
+        test('distanceTo d',  () => new LatLon('52.205', '0.119').distanceTo(new LatLon('48.857', '2.351')).toFixed().should.equal('404279'));
     });
 
     describe('constructor fail', function() {
@@ -200,7 +205,8 @@ describe('latlon-nvector-spherical', function() {
         test('cross-track brng w-e', () => new LatLon(1, 0).crossTrackDistanceTo(new LatLon(0, 0), 90).toPrecision(4).should.equal('-1.112e+5'));
         test('cross-track brng e-w', () => new LatLon(1, 0).crossTrackDistanceTo(new LatLon(0, 0), 270).toPrecision(4).should.equal('1.112e+5'));
 
-        test('cross-track coinc',    () => new LatLon(10, 0).crossTrackDistanceTo(new LatLon(10, 0), 0).should.be.NaN);
+        test('cross-track coinc',    () => new LatLon(10, 0).crossTrackDistanceTo(new LatLon(10, 0), 0).should.equal(0));
+        test('along-track coinc',    () => new LatLon(10, 0).crossTrackDistanceTo(new LatLon(10, 0), 0).should.equal(0));
         test('cross-track (fail)',   () => should.Throw(function() { new LatLon(0, 0).crossTrackDistanceTo(null, 0); }, TypeError, 'invalid pathStart ‘null’'));
         test('cross-track (fail)',   () => should.Throw(function() { new LatLon(0, 0).crossTrackDistanceTo(new LatLon(0, 0), 'x'); }, TypeError, 'invalid pathBrngEnd ‘x’'));
         test('along-track (fail)',   () => should.Throw(function() { new LatLon(0, 0).alongTrackDistanceTo(null, 0); }, TypeError, 'invalid pathStart ‘null’'));

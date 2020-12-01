@@ -7,7 +7,7 @@
 
 /* eslint-disable indent */
 
-import LatLonEllipsoidal, { Dms } from './latlon-ellipsoidal.js';
+import LatLonEllipsoidal, { Dms } from './latlon-ellipsoidal-datum.js';
 
 
 /**
@@ -34,7 +34,8 @@ import LatLonEllipsoidal, { Dms } from './latlon-ellipsoidal.js';
 class Utm {
 
     /**
-     * Creates a Utm coordinate object.
+     * Creates a Utm coordinate object comprising zone, hemisphere, easting, northing on a given
+     * datum (normally WGS84).
      *
      * @param  {number}        zone - UTM 6° longitudinal zone (1..60 covering 180°W..180°E).
      * @param  {string}        hemisphere - N for northern hemisphere, S for southern hemisphere.
@@ -44,18 +45,25 @@ class Utm {
      * @param  {number}        [convergence=null] - Meridian convergence (bearing of grid north
      *                         clockwise from true north), in degrees.
      * @param  {number}        [scale=null] - Grid scale factor.
+     * @params {boolean=true}  verifyEN - Check easting/northing is within 'normal' values (may be
+     *                         suppressed for extended coherent coordinates or alternative datums
+     *                         e.g. ED50 (epsg.io/23029).
      * @throws {TypeError} Invalid UTM coordinate.
      *
      * @example
      *   import Utm from '/js/geodesy/utm.js';
      *   const utmCoord = new Utm(31, 'N', 448251, 5411932);
      */
-    constructor(zone, hemisphere, easting, northing, datum=LatLonEllipsoidal.datums.WGS84, convergence=null, scale=null) {
+    constructor(zone, hemisphere, easting, northing, datum=LatLonEllipsoidal.datums.WGS84, convergence=null, scale=null, verifyEN=true) {
         if (!(1<=zone && zone<=60)) throw new RangeError(`invalid UTM zone ‘${zone}’`);
-        if (!hemisphere.match(/[NS]/i)) throw new RangeError(`invalid UTM hemisphere ‘${hemisphere}’`);
-        if (!(0<=easting && easting<=1000e3)) throw new RangeError(`invalid UTM easting ‘${easting}’`);
-        if (hemisphere=='N' && !(0<=northing && northing<9328094)) throw new RangeError(`invalid UTM northing ‘${northing}’`);
-        if (hemisphere=='S' && !(1118414<northing && northing<=10000e3)) throw new RangeError(`invalid UTM northing ‘${northing}’`);
+        if (zone != parseInt(zone)) throw new RangeError(`invalid UTM zone ‘${zone}’`);
+        if (typeof hemisphere != 'string' || !hemisphere.match(/[NS]/i)) throw new RangeError(`invalid UTM hemisphere ‘${hemisphere}’`);
+        if (verifyEN) { // range-check E/N values
+            if (!(0<=easting && easting<=1000e3)) throw new RangeError(`invalid UTM easting ‘${easting}’`);
+            if (hemisphere.toUpperCase()=='N' && !(0<=northing && northing<9328094)) throw new RangeError(`invalid UTM northing ‘${northing}’`);
+            if (hemisphere.toUpperCase()=='S' && !(1118414<northing && northing<=10000e3)) throw new RangeError(`invalid UTM northing ‘${northing}’`);
+        }
+        if (!datum || datum.ellipsoid==undefined) throw new TypeError(`unrecognised datum ‘${datum}’`);
 
         this.zone = Number(zone);
         this.hemisphere = hemisphere.toUpperCase();
@@ -69,6 +77,9 @@ class Utm {
 
     /**
      * Converts UTM zone/easting/northing coordinate to latitude/longitude.
+     *
+     * Implements Karney’s method, using Krüger series to order n⁶, giving results accurate to 5nm
+     * for distances up to 3900km from the central meridian.
      *
      * @param   {Utm} utmCoord - UTM coordinate to be converted to latitude/longitude.
      * @returns {LatLon} Latitude/longitude of supplied grid reference.
@@ -161,8 +172,8 @@ class Utm {
         λ += λ0; // move λ from zonal to global coordinates
 
         // round to reasonable precision
-        const lat = Number(φ.toDegrees().toFixed(11)); // nm precision (1nm = 10^-11°)
-        const lon = Number(λ.toDegrees().toFixed(11)); // (strictly lat rounding should be φ⋅cosφ!)
+        const lat = Number(φ.toDegrees().toFixed(14)); // nm precision (1nm = 10^-14°)
+        const lon = Number(λ.toDegrees().toFixed(14)); // (strictly lat rounding should be φ⋅cosφ!)
         const convergence = Number(γ.toDegrees().toFixed(9));
         const scale = Number(k.toFixed(12));
 
@@ -245,9 +256,12 @@ class LatLon_Utm extends LatLonEllipsoidal {
     /**
      * Converts latitude/longitude to UTM coordinate.
      *
-     * Implements Karney’s method, using Krüger series to order n^6, giving results accurate to 5nm
+     * Implements Karney’s method, using Krüger series to order n⁶, giving results accurate to 5nm
      * for distances up to 3900km from the central meridian.
      *
+     * @param   {number} [zoneOverride] - Use specified zone rather than zone within which point lies;
+     *          note overriding the UTM zone has the potential to result in negative eastings, and
+     *          perverse results within Norway/Svalbard exceptions.
      * @returns {Utm} UTM coordinate.
      * @throws  {TypeError} Latitude outside UTM limits.
      *
@@ -255,12 +269,12 @@ class LatLon_Utm extends LatLonEllipsoidal {
      *   const latlong = new LatLon(48.8582, 2.2945);
      *   const utmCoord = latlong.toUtm(); // 31 N 448252 5411933
      */
-    toUtm() {
+    toUtm(zoneOverride=undefined) {
         if (!(-80<=this.lat && this.lat<=84)) throw new RangeError(`latitude ‘${this.lat}’ outside UTM limits`);
 
         const falseEasting = 500e3, falseNorthing = 10000e3;
 
-        let zone = Math.floor((this.lon+180)/6) + 1; // longitudinal zone
+        let zone = zoneOverride || Math.floor((this.lon+180)/6) + 1; // longitudinal zone
         let λ0 = ((zone-1)*6 - 180 + 3).toRadians(); // longitude of central meridian
 
         // ---- handle Norway/Svalbard exceptions
@@ -348,14 +362,14 @@ class LatLon_Utm extends LatLonEllipsoidal {
         if (y < 0) y = y + falseNorthing; // make y in southern hemisphere relative to false northing
 
         // round to reasonable precision
-        x = Number(x.toFixed(6)); // nm precision
-        y = Number(y.toFixed(6)); // nm precision
+        x = Number(x.toFixed(9)); // nm precision
+        y = Number(y.toFixed(9)); // nm precision
         const convergence = Number(γ.toDegrees().toFixed(9));
         const scale = Number(k.toFixed(12));
 
         const h = this.lat>=0 ? 'N' : 'S'; // hemisphere
 
-        return new Utm(zone, h, x, y, this.datum, convergence, scale);
+        return new Utm(zone, h, x, y, this.datum, convergence, scale, !!zoneOverride);
     }
 }
 

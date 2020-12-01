@@ -50,8 +50,10 @@ legibility over the minor inconvenience in typing.
 This version 2 of the library uses JavaScript ES classes and modules to organise the 
 interdependencies; this makes the code both more immediately readable than previously, and also more 
 accessible to non-JavaScript readers (always  bearing in mind JavaScript uses prototype-based 
-classes rather than classical inheritance-based classes). For older browsers, 
-[v1.1.3](https://github.com/chrisveness/geodesy/tree/v1.1.3) is ES5-based.
+classes rather than classical inheritance-based classes). For older browsers (or Node.js <8.0.0), 
+[v1.1.3](https://github.com/chrisveness/geodesy/tree/v1.1.3) is ES5-based. Note that there are 
+[breaking changes](https://www.movable-type.co.uk/scripts/geodesy-library-migrating-from-v1.html) 
+in moving from version 1 to version 2. 
 
 While some aspects of the library are quite complex to understand and use, basic usage is simple –
 for instance:
@@ -88,13 +90,13 @@ either client-side in-browser, or with Node.js.
 
 ### Usage in browser
 
-The library can be used in the browser by taking a local copy, or loading it from jsDelivr: for
-example,
+The library can be used in the browser by taking a local copy, or loading it from
+    [jsDelivr](https://www.jsdelivr.com/package/npm/geodesy): for example,
 
 ```html
 <!doctype html><title>geodesy example</title><meta charset="utf-8">
 <script type="module">
-    import LatLon from 'https://cdn.jsdelivr.net/gh/chrisveness/geodesy@2.0.1/latlon-spherical.min.js';
+    import LatLon from 'https://cdn.jsdelivr.net/npm/geodesy@2.2.1/latlon-spherical.min.js';
 
     const p1 = new LatLon(50.06632, -5.71475);
     const p2 = new LatLon(58.64402, -3.07009);
@@ -109,12 +111,14 @@ example,
 
 ### Usage in Node.js
 
-The library can be used in a Node.js app from [npm](https://www.npmjs.com/package/geodesy):
+The library can be loaded from [npm](https://www.npmjs.com/package/geodesy) to be used in a Node.js app 
+(in Node.js v13.2.0+, or using the [esm](https://www.npmjs.com/package/esm) package in 
+v8.0.0–v12.15.0<sup title="v12.16.0+ is not compatible with esm@3.2.25">*</sup>):
 
 ```shell
-$ npm install geodesy
+$ npm install geodesy esm
 $ node -r esm
-> import LatLon from 'geodesy/latlon-spherical';
+> import LatLon from 'geodesy/latlon-spherical.js';
 > const p1 = new LatLon(50.06632, -5.71475);
 > const p2 = new LatLon(58.64402, -3.07009);
 > const d = p1.distanceTo(p2);
@@ -122,6 +126,8 @@ $ node -r esm
 > const mid = p1.midpointTo(p2);
 > console.assert(mid.toString('dms') == '54° 21′ 44″ N, 004° 31′ 51″ W');
 ```
+
+For TypeScript users, type definitions are available from DefinitelyTyped: [www.npmjs.com/package/@types/geodesy](https://www.npmjs.com/package/@types/geodesy).
 
 ### Other examples
 
@@ -197,7 +203,7 @@ import LatLon from 'geodesy/latlon-spherical.js';
 Dms.separator = ' '; // full-space separator between degrees-minutes-seconds
 
 const p1 = LatLon.parse({ lat: '50:03:59N', lng: '005:42:53W' });
-const p2 = LatLon.parse({ lat: '58:38:38N', lng: '003:04:12W' });
+const p2 = LatLon.parse('58°38′38″N, 003°04′12″W');
 
 const mid = p1.midpointTo(p2);
 console.assert(mid.toString('dms') == '54° 21′ 44″ N, 004° 31′ 50″ W');

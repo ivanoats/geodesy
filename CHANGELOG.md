@@ -1,5 +1,50 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Fix parsing of 'H' 500km squares (Scottish islands)
+- Fix Dms.wrap90(), Dms.wrap180() to work for all -ve degrees
+
+### Added
+
+- LatLonEllipsoidal_Vincenty.intermediatePointTo()
+
+## [2.2.1] - 2020-04-22
+
+### Fixed
+
+- Coerce textual lat/long to numeric in latlon-spherical
+- Return crossTrackDistance / alongTrackDistance of 0 when 'this' point equals start point
+- Round UTM to nm rather than (erroneous) μm
+- Fix (rare) rounding error issue in intersection() [#71]
+- Fix (edgecase) gross error in MGRS -> UTM conversion [#73]
+- Return 0 rather than NaN for cross-track / along-track distance of coincident points [#76]
+- Remove tests from published package
+
+## [2.2.0] - 2019-07-08
+
+### Fixed
+
+- Fix vincenty inverse calculation for antipodal points
+- Provide convertDatum() method on a LatLon obtained from Utm.toLatLon()
+
+### Added
+
+- Option to override UTM zone in LatLon.toUtm(), option to suppress UTM easting/northing checks
+- ETRS89 datum (≡ WGS84 @ 1m level)
+
+## [2.1.0] - 2019-06-03
+
+### Added
+
+- Latlon-ellipsoidal-datum.js:Cartesian_Datum.convertDatum()
+
+### Deprecated
+
+- datum parameter to latlon-ellipsoidal-datum.js:Cartesian_Datum.toLatLon()
+
 ## [2.0.1] - 2019-04-10
 
 ### Fixed

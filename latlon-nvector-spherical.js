@@ -272,7 +272,7 @@ class LatLonNvectorSpherical {
      * @example
      *   const p1 = new LatLon(52.205, 0.119);
      *   const p2 = new LatLon(48.857, 2.351);
-     *   const pInt = p1.intermediatePointTo(p2, 0.25); // 51.3723°N, 000.7072°E
+     *   const pInt = p1.intermediatePointTo(p2, 0.25); // 51.3721°N, 000.7072°E
      */
     intermediatePointTo(point, fraction) {
         if (!(point instanceof LatLonNvectorSpherical)) throw new TypeError(`invalid point ‘${point}’`);
@@ -481,7 +481,7 @@ class LatLonNvectorSpherical {
         if (!(pathStart instanceof LatLonNvectorSpherical)) throw new TypeError(`invalid pathStart ‘${pathStart}’`);
         if (!(pathBrngEnd instanceof LatLonNvectorSpherical || !isNaN(pathBrngEnd))) throw new TypeError(`invalid pathBrngEnd ‘${pathBrngEnd}’`);
 
-        if (this.equals(pathStart)) return NaN; // coincident points
+        if (this.equals(pathStart)) return 0;
 
         const p = this.toNvector();
         const R = Number(radius);
@@ -540,7 +540,7 @@ class LatLonNvectorSpherical {
      *
      * @param   {LatLon} point1 - Start point of great circle segment.
      * @param   {LatLon} point2 - End point of great circle segment.
-     * @returns {number} point on segment.
+     * @returns {LatLon} point on segment.
      *
      * @example
      *   const p1 = new LatLon(51.0, 1.0);

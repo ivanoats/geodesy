@@ -5,7 +5,6 @@
 /* www.movable-type.co.uk/scripts/geodesy-library.html#latlon-ellipsoidal-datum                  */
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
 
-
 import LatLonEllipsoidal, { Cartesian, Dms } from './latlon-ellipsoidal.js';
 
 
@@ -55,7 +54,7 @@ const ellipsoids = {
 const datums = {
     // transforms: t in metres, s in ppm, r in arcseconds              tx       ty        tz       s        rx        ry        rz
     ED50:       { ellipsoid: ellipsoids.Intl1924,      transform: [   89.5,    93.8,    123.1,    -1.2,     0.0,      0.0,      0.156    ] }, // epsg.io/1311
-    // en.wikipedia.org/wiki/European_Terrestrial_Reference_System_1989
+    ETRS89:     { ellipsoid: ellipsoids.GRS80,         transform: [    0,       0,        0,       0,       0,        0,        0        ] }, // epsg.io/1149; @ 1-metre level
     Irl1975:    { ellipsoid: ellipsoids.AiryModified,  transform: [ -482.530, 130.596, -564.557,  -8.150,   1.042,    0.214,    0.631    ] }, // epsg.io/1954
     NAD27:      { ellipsoid: ellipsoids.Clarke1866,    transform: [    8,    -160,     -176,       0,       0,        0,        0        ] },
     NAD83:      { ellipsoid: ellipsoids.GRS80,         transform: [    0.9956, -1.9103,  -0.5215, -0.00062, 0.025915, 0.009426, 0.011599 ] },
@@ -184,7 +183,7 @@ class LatLonEllipsoidal_Datum extends LatLonEllipsoidal {
      * @param   {number|string|Object} lat|latlon - Geodetic Latitude (in degrees) or comma-separated lat/lon or lat/lon object.
      * @param   {number}               [lon] - Longitude in degrees.
      * @param   {number}               [height=0] - Height above ellipsoid in metres.
-     * @param   {LatLon.datums}        [datum=LatLon.datums.WGS84] - Datum this point is defined within.
+     * @param   {LatLon.datums}        [datum=WGS84] - Datum this point is defined within.
      * @returns {LatLon} Latitude/longitude point on ellipsoidal model earth using given datum.
      * @throws  {TypeError} Unrecognised datum.
      *
@@ -221,26 +220,9 @@ class LatLonEllipsoidal_Datum extends LatLonEllipsoidal {
     convertDatum(toDatum) {
         if (!toDatum || toDatum.ellipsoid==undefined) throw new TypeError(`unrecognised datum ‘${toDatum}’`);
 
-        let oldLatLon = this;
-        let transform = null;
-
-        if (oldLatLon.datum == datums.WGS84) {
-            // converting from WGS 84
-            transform = toDatum.transform;
-        }
-        if (toDatum == datums.WGS84) {
-            // converting to WGS 84; use inverse transform
-            transform = oldLatLon.datum.transform.map(p => -p);
-        }
-        if (transform == null) {
-            // neither this.datum nor toDatum are WGS84: convert this to WGS84 first
-            oldLatLon = this.convertDatum(datums.WGS84);
-            transform = toDatum.transform;
-        }
-
-        const oldCartesian = oldLatLon.toCartesian();                // convert geodetic to cartesian...
-        const newCartesian = oldCartesian.applyTransform(transform); // ...apply transform...
-        const newLatLon = newCartesian.toLatLon(toDatum);            // ...and convert cartesian to geodetic
+        const oldCartesian = this.toCartesian();                 // convert geodetic to cartesian
+        const newCartesian = oldCartesian.convertDatum(toDatum); // convert datum
+        const newLatLon = newCartesian.toLatLon();               // convert cartesian back to geodetic
 
         return newLatLon;
     }
@@ -248,15 +230,18 @@ class LatLonEllipsoidal_Datum extends LatLonEllipsoidal {
 
     /**
      * Converts ‘this’ point from (geodetic) latitude/longitude coordinates to (geocentric) cartesian
-     * (x/y/z) coordinates.
+     * (x/y/z) coordinates, based on the same datum.
+     *
+     * Shadow of LatLonEllipsoidal.toCartesian(), returning Cartesian augmented with
+     * LatLonEllipsoidal_Datum methods/properties.
      *
      * @returns {Cartesian} Cartesian point equivalent to lat/lon point, with x, y, z in metres from
-     *   earth centre.
+     *   earth centre, augmented with reference frame conversion methods and properties.
      */
     toCartesian() {
         const cartesian = super.toCartesian();
-        const cartesianDatums = new Cartesian_Datum(cartesian.x, cartesian.y, cartesian.z);
-        return cartesianDatums;
+        const cartesianDatum = new Cartesian_Datum(cartesian.x, cartesian.y, cartesian.z, this.datum);
+        return cartesianDatum;
     }
 
 }
@@ -266,31 +251,117 @@ class LatLonEllipsoidal_Datum extends LatLonEllipsoidal {
 
 
 /**
- * Converts geocentric ECEF (earth-centered earth-fixed) cartesian coordinates to latitude/longitude points,
- * applies Helmert transformations.
+ * Augments Cartesian with datum the cooordinate is based on, and methods to convert between datums
+ * (using Helmert 7-parameter transforms) and to convert cartesian to geodetic latitude/longitude
+ * point.
  *
  * @extends Cartesian
  */
 class Cartesian_Datum extends Cartesian {
 
     /**
-     * Converts ‘this’ (geocentric) cartesian (x/y/z) coordinate to (geodetic) latitude/longitude
-     * point on specified datum.
+     * Creates cartesian coordinate representing ECEF (earth-centric earth-fixed) point, on a given
+     * datum. The datum will identify the primary meridian (for the x-coordinate), and is also
+     * useful in transforming to/from geodetic (lat/lon) coordinates.
      *
-     * Shadow of Cartesian.toLatLon(), returning LatLon augmented with LatLonEllipsoidal_Datum methods
-     * convertDatum, toCartesian, etc.
-     *
-     * @param   {LatLon.datums} [datum=LatLon.datums.WGS84] - Datum to use when converting point.
-     * @returns {LatLon} Latitude/longitude point defined by cartesian coordinates, in given datum.
+     * @param  {number} x - X coordinate in metres (=> 0°N,0°E).
+     * @param  {number} y - Y coordinate in metres (=> 0°N,90°E).
+     * @param  {number} z - Z coordinate in metres (=> 90°N).
+     * @param  {LatLon.datums} [datum] - Datum this coordinate is defined within.
+     * @throws {TypeError} Unrecognised datum.
      *
      * @example
-     *   const c = new Cartesian(4027893.924, 307041.993, 4919474.294)
-     *   const p = c.toLatLon().convertDatum(LatLon.datums.OSGB36); // 50.7971°N, 004.3612°E
+     *   import { Cartesian } from '/js/geodesy/latlon-ellipsoidal-datum.js';
+     *   const coord = new Cartesian(3980581.210, -111.159, 4966824.522);
      */
-    toLatLon(datum=datums.WGS84) {
+    constructor(x, y, z, datum=undefined) {
+        if (datum && datum.ellipsoid==undefined) throw new TypeError(`unrecognised datum ‘${datum}’`);
+
+        super(x, y, z);
+
+        if (datum) this._datum = datum;
+    }
+
+
+    /**
+     * Datum this point is defined within.
+     */
+    get datum() {
+        return this._datum;
+    }
+    set datum(datum) {
         if (!datum || datum.ellipsoid==undefined) throw new TypeError(`unrecognised datum ‘${datum}’`);
-        const latLon = super.toLatLon(datum.ellipsoid);
-        return new LatLonEllipsoidal_Datum(latLon.lat, latLon.lon, latLon.height, datum);
+        this._datum = datum;
+    }
+
+
+    /**
+     * Converts ‘this’ (geocentric) cartesian (x/y/z) coordinate to (geodetic) latitude/longitude
+     * point (based on the same datum, or WGS84 if unset).
+     *
+     * Shadow of Cartesian.toLatLon(), returning LatLon augmented with LatLonEllipsoidal_Datum
+     * methods convertDatum, toCartesian, etc.
+     *
+     * @returns {LatLon} Latitude/longitude point defined by cartesian coordinates.
+     * @throws  {TypeError} Unrecognised datum
+     *
+     * @example
+     *   const c = new Cartesian(4027893.924, 307041.993, 4919474.294);
+     *   const p = c.toLatLon(); // 50.7978°N, 004.3592°E
+     */
+    toLatLon(deprecatedDatum=undefined) {
+        if (deprecatedDatum) {
+            console.info('datum parameter to Cartesian_Datum.toLatLon is deprecated: set datum before calling toLatLon()');
+            this.datum = deprecatedDatum;
+        }
+        const datum = this.datum || datums.WGS84;
+        if (!datum || datum.ellipsoid==undefined) throw new TypeError(`unrecognised datum ‘${datum}’`);
+
+        const latLon = super.toLatLon(datum.ellipsoid); // TODO: what if datum is not geocentric?
+        const point = new LatLonEllipsoidal_Datum(latLon.lat, latLon.lon, latLon.height, this.datum);
+        return point;
+    }
+
+
+    /**
+     * Converts ‘this’ cartesian coordinate to new datum using Helmert 7-parameter transformation.
+     *
+     * @param   {LatLon.datums} toDatum - Datum this coordinate is to be converted to.
+     * @returns {Cartesian} This point converted to new datum.
+     * @throws  {Error} Undefined datum.
+     *
+     * @example
+     *   const c = new Cartesian(3980574.247, -102.127, 4966830.065, LatLon.datums.OSGB36);
+     *   c.convertDatum(LatLon.datums.Irl1975); // [??,??,??]
+     */
+    convertDatum(toDatum) {
+        // TODO: what if datum is not geocentric?
+        if (!toDatum || toDatum.ellipsoid == undefined) throw new TypeError(`unrecognised datum ‘${toDatum}’`);
+        if (!this.datum) throw new TypeError('cartesian coordinate has no datum');
+
+        let oldCartesian = null;
+        let transform = null;
+
+        if (this.datum == undefined || this.datum == datums.WGS84) {
+            // converting from WGS 84
+            oldCartesian = this;
+            transform = toDatum.transform;
+        }
+        if (toDatum == datums.WGS84) {
+            // converting to WGS 84; use inverse transform
+            oldCartesian = this;
+            transform = this.datum.transform.map(p => -p);
+        }
+        if (transform == null) {
+            // neither this.datum nor toDatum are WGS84: convert this to WGS84 first
+            oldCartesian = this.convertDatum(datums.WGS84);
+            transform = toDatum.transform;
+        }
+
+        const newCartesian = oldCartesian.applyTransform(transform);
+        newCartesian.datum = toDatum;
+
+        return newCartesian;
     }
 
 

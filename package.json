@@ -1,7 +1,7 @@
 {
   "name": "geodesy",
   "description": "Libraries of geodesy functions",
-  "homepage": "http://www.movable-type.co.uk/scripts/latlong.html",
+  "homepage": "http://www.movable-type.co.uk/scripts/geodesy-library.html",
   "repository": {
     "type": "git",
     "url": "https://github.com/chrisveness/geodesy"
@@ -25,41 +25,44 @@
     "mgrs"
   ],
   "author": "Chris Veness",
-  "version": "2.0.1",
+  "version": "2.2.1",
   "license": "MIT",
+  "type": "module",
   "engines": {
     "node": ">=8.0.0"
   },
+  "files": [ "dms.js", "latlon-*.js", "mgrs.js", "osgridref.js", "utm.js", "vector3d.js" ],
   "bugs": "https://github.com/chrisveness/geodesy/issues",
   "scripts": {
-    "test": "mocha --exit -r esm test/*.js",
+    "test": "mocha --exit test/*.js",
     "lint": "eslint .",
-    "cover": "nyc --reporter=html npm test; rm -r ./.nyc_output",
+    "cover": "c8 -r html npm test",
     "docs": "jsdoc *.js README.md -d ../../geodesy/docs",
     "bundle": "webpack"
   },
   "devDependencies": {
-    "babel-core": "^6.26.3",
-    "babel-eslint": "^10.0.1",
-    "babel-loader": "^7.1.5",
+    "@babel/core": "^7.12.9",
+    "@babel/eslint-parser": "^7.0.0",
+    "@babel/plugin-syntax-top-level-await": "^7.0.0",
+    "babel-eslint": "^10.1.0",
+    "babel-loader": "^8.2.2.",
+    "c8": "^7.0.0",
     "chai": "^4.2.0",
     "coveralls": "^3.0.3",
-    "eslint": "^5.16.0",
-    "esm": "^3.2.22",
+    "esm": "^3.2.25",
+    "eslint": "^7.0.0",
     "jsdoc": "^3.5.5",
-    "mocha": "^6.1.2",
-    "nyc": "^13.3.0",
+    "mocha": "^7.0.0",
     "webpack": "^4.30.0",
     "webpack-cli": "^3.3.1"
   },
   "eslintConfig": {
     "env": {
       "browser": true,
-      "es6": true,
       "mocha": true,
       "node": true
     },
-    "parser": "babel-eslint",
+    "parser": "@babel/eslint-parser",
     "extends": "eslint:recommended",
     "globals": {
       "chai": true,
@@ -98,6 +101,7 @@
         "error"
       ],
       "no-case-declarations": "warn",
+<<<<<<< HEAD
       "no-console": [
         "warn",
         {
@@ -107,6 +111,9 @@
           ]
         }
       ],
+=======
+      "no-console": [ "warn", { "allow": [ "error", "info", "debug" ] } ],
+>>>>>>> master
       "no-irregular-whitespace": "warn",
       "no-redeclare": "warn",
       "no-shadow": "warn",
@@ -117,6 +124,7 @@
         "always"
       ],
       "prefer-const": "error",
+<<<<<<< HEAD
       "quotes": [
         "error",
         "single",
@@ -137,7 +145,18 @@
         "error",
         "global"
       ]
+=======
+      "quotes": [ "error", "single", "avoid-escape" ],
+      "require-await": "error",
+      "semi": [ "error", "always" ],
+      "space-before-blocks": [ "error", "always" ],
+      "space-in-parens": [ "error" ],
+      "strict": [ "error", "global" ]
+>>>>>>> master
     }
+  },
+  "babel": {
+    "plugins": ["@babel/plugin-syntax-top-level-await"]
   },
   "jsdoc": {
     "plugins": [

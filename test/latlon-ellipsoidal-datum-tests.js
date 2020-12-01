@@ -1,11 +1,12 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
-/* Geodesy Test Harness - ellipsoidal datums                          (c) Chris Veness 2014-2019  */
+/* Geodesy Test Harness - ellipsoidal datums                          (c) Chris Veness 2014-2020  */
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
 
 import LatLon, { Cartesian, Dms } from '../latlon-ellipsoidal-datum.js';
 
 if (typeof window == 'undefined') { // node
-    import('chai').then(chai => { global.should = chai.should(); });
+    const chai = await import('chai');
+    global.should = chai.should();
 } else {                           // browser
     chai.should();
 }
@@ -67,7 +68,6 @@ describe('latlon-ellipsoidal-datum', function() {
         test('toCartesian', () => p.toCartesian().toString().should.equal('[3194419,3194419,4487348]'));
         const c = new Cartesian(3194419, 3194419, 4487348);
         test('toLatLon', () => c.toLatLon().toString().should.equal('45.0000°N, 045.0000°E'));
-        test('toLatLon fail', () => should.Throw(function() { c.toLatLon(null); }, TypeError, 'unrecognised datum ‘null’'));
         test('toLatLon fail', () => should.Throw(function() { c.toLatLon('xx'); }, TypeError, 'unrecognised datum ‘xx’'));
     });
 });

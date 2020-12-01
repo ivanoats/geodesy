@@ -1,5 +1,5 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
-/* Geodesy Test Harness - utm/mgrs                                    (c) Chris Veness 2014-2019  */
+/* Geodesy Test Harness - utm/mgrs                                    (c) Chris Veness 2014-2020  */
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
 
 /* eslint-disable space-in-parens */
@@ -7,7 +7,8 @@
 import Mgrs, { Utm, LatLon, Dms } from '../mgrs.js';
 
 if (typeof window == 'undefined') { // node
-    import('chai').then(chai => global.should = chai.should());
+    const chai = await import('chai');
+    global.should = chai.should();
 } else {                            // browser
     window.should = chai.should();
 }
@@ -40,6 +41,7 @@ describe('utm/mgrs', function() {
     describe('UTM constructor fail', function() {
         test('zone fail',       () => should.Throw(function() { new Utm(0, 'N', 0, 0); }, RangeError, 'invalid UTM zone ‘0’'));
         test('zone fail',       () => should.Throw(function() { new Utm(61, 'N', 0, 0); }, RangeError, 'invalid UTM zone ‘61’'));
+        test('zone fail',       () => should.Throw(function() { new Utm(1.5, 'N', 0, 0); }, RangeError, 'invalid UTM zone ‘1.5’'));
         test('hemisphere fail', () => should.Throw(function() { new Utm(1, 'E', 0, 0); }, RangeError, 'invalid UTM hemisphere ‘E’'));
         test('easting fail',    () => should.Throw(function() { new Utm(1, 'N', 1001e3, 0); }, RangeError, 'invalid UTM easting ‘1001000’'));
         test('northing N fail', () => should.Throw(function() { new Utm(1, 'N', 0, 9329e3); }, RangeError, 'invalid UTM northing ‘9329000’'));
@@ -47,7 +49,8 @@ describe('utm/mgrs', function() {
     });
 
     describe('MGRS constructor fail', function() {
-        test('bad zone',             () => should.Throw(function() { new Mgrs(0, 'C', 'A', 'A', 0, 0); }, RangeError, 'MGRS zone ‘0’ out of range'));
+        test('bad zone',             () => should.Throw(function() { new Mgrs(0, 'C', 'A', 'A', 0, 0); }, RangeError, 'invalid MGRS zone ‘0’'));
+        test('bad zone',             () => should.Throw(function() { new Mgrs(1.5, 'C', 'A', 'A', 0, 0); }, RangeError, 'invalid MGRS zone ‘1.5’'));
         test('bad band',             () => should.Throw(function() { new Mgrs(1, 'A', 'A', 'A', 0, 0); }, RangeError, 'invalid MGRS band ‘A’'));
         test('bad grid sq easting',  () => should.Throw(function() { new Mgrs(1, 'C', 'I', 'A', 0, 0); }, RangeError, 'invalid MGRS 100km grid square column ‘I’ for zone 1'));
         test('bad grid sq northing', () => should.Throw(function() { new Mgrs(1, 'C', 'A', 'I', 0, 0); }, RangeError, 'invalid MGRS 100km grid square row ‘I’'));
@@ -76,6 +79,7 @@ describe('utm/mgrs', function() {
         test('0,0',                () => new LatLon( 0,  0).toUtm().toString(6).should.equal('31 N 166021.443081 0.000000'));
         test('1,1',                () => new LatLon( 1,  1).toUtm().toString(5).should.equal('31 N 277438.26352 110597.97252'));
         test('-1,-1',              () => new LatLon(-1, -1).toUtm().toString(5).should.equal('30 S 722561.73648 9889402.02748'));
+        test('1,1 Z31',            () => new LatLon( 1,  1).toUtm(30).toString(5).should.equal('30 N 945396.68398 110801.83255'));
         test('eiffel tower',       () => new LatLon( 48.8583,   2.2945).toUtm().toString(3).should.equal('31 N 448251.898 5411943.794'));
         test('sidney o/h',         () => new LatLon(-33.857,  151.215 ).toUtm().toString(3).should.equal('56 S 334873.199 6252266.092'));
         test('white house',        () => new LatLon( 38.8977, -77.0365).toUtm().toString(3).should.equal('18 N 323394.296 4307395.634'));
@@ -121,6 +125,17 @@ describe('utm/mgrs', function() {
         // forgiving parsing of 100km squares spanning bands
         test('01P ≡ UTM 01Q', () => Mgrs.parse('01P ET 00000 68935').toUtm().toString().should.equal('01 N 500000 1768935'));
         test('01Q ≡ UTM 01P', () => Mgrs.parse('01Q ET 00000 68935').toUtm().toString().should.equal('01 N 500000 1768935'));
+        // use correct latitude band base northing [#73]
+        test('nBand @ 3°',    () => Utm.parse('31 N 500000 7097014').toMgrs().toUtm().toString().should.equal('31 N 500000 7097014'));
+    });
+
+    describe('ED50 conversion', function() {
+        const helmertturm = new Utm(33, 'N', 368381.402, 5805291.614, LatLon.datums.ED50); // epsg.io/23033
+        const llED50 = helmertturm.toLatLon();
+        const llWGS84 = llED50.convertDatum(LatLon.datums.WGS84);
+        // TODO: no llWGS84.toUtm()!
+        test('helmertturm ED50', () => llED50.toString('dms', 3).should.equal('52°22′51.446″N, 013°03′58.741″E')); // earth-info.nga.mil/GandG/coordsys/datums/datumorigins.html
+        test('helmertturm WGS84', () => llWGS84.toString('dms', 3).should.equal('52°22′48.931″N, 013°03′54.824″E'));
     });
 
     describe('IBM coordconvert', function() {

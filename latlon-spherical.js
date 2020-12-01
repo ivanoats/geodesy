@@ -49,8 +49,8 @@ class LatLonSpherical {
         if (isNaN(lat)) throw new TypeError(`invalid lat ‘${lat}’`);
         if (isNaN(lon)) throw new TypeError(`invalid lon ‘${lon}’`);
 
-        this._lat = Dms.wrap90(lat);
-        this._lon = Dms.wrap180(lon);
+        this._lat = Dms.wrap90(Number(lat));
+        this._lon = Dms.wrap180(Number(lon));
     }
 
 
@@ -61,11 +61,11 @@ class LatLonSpherical {
     get lat()       { return this._lat; }
     get latitude()  { return this._lat; }
     set lat(lat) {
-        this._lat = isNaN(lat) ? Dms.wrap90(Dms.parse(lat)) : Dms.wrap90(lat);
+        this._lat = isNaN(lat) ? Dms.wrap90(Dms.parse(lat)) : Dms.wrap90(Number(lat));
         if (isNaN(this._lat)) throw new TypeError(`invalid lat ‘${lat}’`);
     }
     set latitude(lat) {
-        this._lat = isNaN(lat) ? Dms.wrap90(Dms.parse(lat)) : Dms.wrap90(lat);
+        this._lat = isNaN(lat) ? Dms.wrap90(Dms.parse(lat)) : Dms.wrap90(Number(lat));
         if (isNaN(this._lat)) throw new TypeError(`invalid latitude ‘${lat}’`);
     }
 
@@ -77,15 +77,15 @@ class LatLonSpherical {
     get lng()       { return this._lon; }
     get longitude() { return this._lon; }
     set lon(lon) {
-        this._lon = isNaN(lon) ? Dms.wrap180(Dms.parse(lon)) : Dms.wrap180(lon);
+        this._lon = isNaN(lon) ? Dms.wrap180(Dms.parse(lon)) : Dms.wrap180(Number(lon));
         if (isNaN(this._lon)) throw new TypeError(`invalid lon ‘${lon}’`);
     }
     set lng(lon) {
-        this._lon = isNaN(lon) ? Dms.wrap180(Dms.parse(lon)) : Dms.wrap180(lon);
+        this._lon = isNaN(lon) ? Dms.wrap180(Dms.parse(lon)) : Dms.wrap180(Number(lon));
         if (isNaN(this._lon)) throw new TypeError(`invalid lng ‘${lon}’`);
     }
     set longitude(lon) {
-        this._lon = isNaN(lon) ? Dms.wrap180(Dms.parse(lon)) : Dms.wrap180(lon);
+        this._lon = isNaN(lon) ? Dms.wrap180(Dms.parse(lon)) : Dms.wrap180(Number(lon));
         if (isNaN(this._lon)) throw new TypeError(`invalid longitude ‘${lon}’`);
     }
 
@@ -431,7 +431,7 @@ class LatLonSpherical {
 
         const δ13 = Math.atan2(Math.sin(δ12)*Math.sin(α1)*Math.sin(α2), Math.cos(α2) + Math.cos(α1)*cosα3);
 
-        const φ3 = Math.asin(Math.sin(φ1)*Math.cos(δ13) + Math.cos(φ1)*Math.sin(δ13)*Math.cos(θ13));
+        const φ3 = Math.asin(Math.min(Math.max(Math.sin(φ1)*Math.cos(δ13) + Math.cos(φ1)*Math.sin(δ13)*Math.cos(θ13), -1), 1));
 
         const Δλ13 = Math.atan2(Math.sin(θ13)*Math.sin(δ13)*Math.cos(φ1), Math.cos(δ13) - Math.sin(φ1)*Math.sin(φ3));
         const λ3 = λ1 + Δλ13;
@@ -462,6 +462,8 @@ class LatLonSpherical {
         if (!(pathStart instanceof LatLonSpherical)) pathStart = LatLonSpherical.parse(pathStart); // allow literal forms
         if (!(pathEnd instanceof LatLonSpherical)) pathEnd = LatLonSpherical.parse(pathEnd);       // allow literal forms
         const R = radius;
+
+        if (this.equals(pathStart)) return 0;
 
         const δ13 = pathStart.distanceTo(this, R) / R;
         const θ13 = pathStart.initialBearingTo(this).toRadians();
@@ -494,6 +496,8 @@ class LatLonSpherical {
         if (!(pathStart instanceof LatLonSpherical)) pathStart = LatLonSpherical.parse(pathStart); // allow literal forms
         if (!(pathEnd instanceof LatLonSpherical)) pathEnd = LatLonSpherical.parse(pathEnd);       // allow literal forms
         const R = radius;
+
+        if (this.equals(pathStart)) return 0;
 
         const δ13 = pathStart.distanceTo(this, R) / R;
         const θ13 = pathStart.initialBearingTo(this).toRadians();

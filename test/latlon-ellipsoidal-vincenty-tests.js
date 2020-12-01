@@ -1,12 +1,13 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
-/* Geodesy Test Harness - latlon-ellipsoidal-vincenty                 (c) Chris Veness 2014-2019  */
+/* Geodesy Test Harness - latlon-ellipsoidal-vincenty                 (c) Chris Veness 2014-2020  */
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
 
 import LatLon, { Dms } from '../latlon-ellipsoidal-vincenty.js';
 import { datums }      from '../latlon-ellipsoidal-datum.js';
 
 if (typeof window == 'undefined') { // node
-    import('chai').then(chai => { global.should = chai.should(); });
+    const chai = await import('chai');
+    global.should = chai.should();
 } else {                           // browser
     chai.should();
 }
@@ -15,6 +16,18 @@ if (typeof window == 'undefined') { // node
 describe('latlon-ellipsoidal-vincenty', function() {
     const test = it;    // just an alias
     Dms.separator = ''; // tests are easier without any DMS separator
+
+    const circEquatorial = 40075016.686; // eslint-disable-line no-unused-vars
+    const circMeridional = 40007862.918;
+
+    describe('@examples', function() {
+        test('distanceTo',          () => new LatLon(50.06632, -5.71475).distanceTo(new LatLon(58.64402, -3.07009)).toFixed(3).should.equal('969954.166'));
+        test('initialBearingTo',    () => new LatLon(50.06632, -5.71475).initialBearingTo(new LatLon(58.64402, -3.07009)).toFixed(4).should.equal('9.1419'));
+        test('finalBearingTo',      () => new LatLon(50.06632, -5.71475).finalBearingTo(new LatLon(58.64402, -3.07009)).toFixed(4).should.equal('11.2972'));
+        test('destinationPoint',    () => new LatLon(-37.95103, 144.42487).destinationPoint(54972.271, 306.86816).toString().should.equal('37.6528°S, 143.9265°E'));
+        test('finalBearingOn',      () => new LatLon(-37.95103, 144.42487).finalBearingOn(54972.271, 306.86816).toFixed(4).should.equal('307.1736'));
+        test('intermediatePointTo', () => new LatLon(50.06632, -5.71475).intermediatePointTo(new LatLon(58.64402, -3.07009), 0.5).toString().should.equal('54.3639°N, 004.5304°W'));
+    });
 
     describe('UK', function() {
         const le = new LatLon(50.06632, -5.71475), jog = new LatLon(58.64402, -3.07009);
@@ -41,10 +54,14 @@ describe('latlon-ellipsoidal-vincenty', function() {
     });
 
     describe('antipodal', function() {
-        test('antipodal distance',                   () => new LatLon(0, 0).distanceTo(new LatLon(0.5, 179.5)).should.equal(19936288.579));
+        test('near-antipodal distance',              () => new LatLon(0, 0).distanceTo(new LatLon(0.5, 179.5)).should.equal(19936288.579));
         test('antipodal convergence failure dist',   () => new LatLon(0, 0).distanceTo(new LatLon(0.5, 179.7)).should.be.NaN);
         test('antipodal convergence failure brng i', () => new LatLon(0, 0).initialBearingTo(new LatLon(0.5, 179.7)).should.be.NaN);
         test('antipodal convergence failure brng f', () => new LatLon(0, 0).finalBearingTo(new LatLon(0.5, 179.7)).should.be.NaN);
+        test('antipodal distance equatorial',        () => new LatLon(0, 0).distanceTo(new LatLon(0, 180)).should.equal(circMeridional/2));
+        test('antipodal brng equatorial',            () => new LatLon(0, 0).initialBearingTo(new LatLon(0, 180)).should.equal(0));
+        test('antipodal distance meridional',        () => new LatLon(90, 0).distanceTo(new LatLon(-90, 0)).should.equal(circMeridional/2));
+        test('antipodal brng meridional',            () => new LatLon(90, 0).initialBearingTo(new LatLon(-90, 0)).should.equal(0));
     });
 
     describe('coincident', function() {
@@ -85,8 +102,8 @@ describe('latlon-ellipsoidal-vincenty', function() {
         test('distanceTo (fail)',       () => should.Throw(function() { le.distanceTo(jog); }, RangeError, 'point must be on the surface of the ellipsoid'));
         test('initialBearingTo (fail)', () => should.Throw(function() { le.initialBearingTo(jog); }, RangeError, 'point must be on the surface of the ellipsoid'));
         test('finalBearingTo (fail)',   () => should.Throw(function() { le.finalBearingTo(jog); }, RangeError, 'point must be on the surface of the ellipsoid'));
-        test('destinationPoint (fail)', () => should.Throw(function() { le.destinationPoint(0, 0); }, RangeError, 'point must be on the surface of the ellipsoid'));
-        test('finalBearingOn (fail)',   () => should.Throw(function() { le.finalBearingOn(0, 0); }, RangeError, 'point must be on the surface of the ellipsoid'));
+        test('destinationPoint (fail)', () => should.Throw(function() { le.destinationPoint(1, 0); }, RangeError, 'point must be on the surface of the ellipsoid'));
+        test('finalBearingOn (fail)',   () => should.Throw(function() { le.finalBearingOn(1, 0); }, RangeError, 'point must be on the surface of the ellipsoid'));
     });
 
     describe('convergence', function() {
@@ -109,6 +126,10 @@ describe('latlon-ellipsoidal-vincenty', function() {
         test('inverse distance', () => le.distanceTo(jog).should.equal(dist));
         test('inverse bearing', () => le.initialBearingTo(jog).should.equal(brngInit));
         test('direct destination', () => le.destinationPoint(dist, brngInit).toString('d', 6).should.equal('58.644399°N, 003.068521°W'));
+    });
+
+    describe('constructor with strings', function() {
+        test('distanceTo d', () => new LatLon('52.205', '0.119').distanceTo(new LatLon('48.857', '2.351')).should.equal(404607.806));
     });
 
 });

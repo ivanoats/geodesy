@@ -1,5 +1,5 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
-/* Vincenty Direct and Inverse Solution of Geodesics on the Ellipsoid (c) Chris Veness 2002-2019  */
+/* Vincenty Direct and Inverse Solution of Geodesics on the Ellipsoid (c) Chris Veness 2002-2020  */
 /*                                                                                   MIT Licence  */
 /* www.movable-type.co.uk/scripts/latlong-ellipsoidal-vincenty.html                               */
 /* www.movable-type.co.uk/scripts/geodesy-library.html#latlon-ellipsoidal-vincenty                */
@@ -8,6 +8,7 @@
 import LatLonEllipsoidal, { Dms } from './latlon-ellipsoidal.js';
 
 const π = Math.PI;
+const ε = Number.EPSILON;
 
 
 /**
@@ -140,12 +141,36 @@ class LatLonEllipsoidal_Vincenty extends LatLonEllipsoidal {
      *
      * @example
      *   const p1 = new LatLon(-37.95103, 144.42487);
-     *   const b2 = p1.finalBearingOn(306.86816, 54972.271); // 307.1736°
+     *   const b2 = p1.finalBearingOn(54972.271, 306.86816); // 307.1736°
      */
     finalBearingOn(distance, initialBearing) {
         const brng = this.direct(Number(distance), Number(initialBearing)).finalBearing;
         return Number(brng.toFixed(7)); // round to 0.001″ precision
     }
+
+
+    /**
+     * Returns the point at given fraction between ‘this’ point and given point.
+     *
+     * @param   {LatLon} point - Latitude/longitude of destination point.
+     * @param   {number} fraction - Fraction between the two points (0 = this point, 1 = specified point).
+     * @returns {LatLon} Intermediate point between this point and destination point.
+     *
+     * @example
+     *   const p1 = new LatLon(50.06632, -5.71475);
+     *   const p2 = new LatLon(58.64402, -3.07009);
+     *   const pInt = p1.intermediatePointTo(p2, 0.5); // 54.3639°N, 004.5304°W
+     */
+    intermediatePointTo(point, fraction) {
+        if (fraction == 0) return this;
+        const inverse = this.inverse(point);
+        const dist = inverse.distance;
+        const brng = inverse.initialBearing;
+        return isNaN(brng) ? this : this.destinationPoint(dist*fraction, brng);
+    }
+
+
+    /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
 
 
     /**
@@ -161,11 +186,14 @@ class LatLonEllipsoidal_Vincenty extends LatLonEllipsoidal {
      * @throws  {EvalError}  Formula failed to converge.
      */
     direct(distance, initialBearing) {
+        if (isNaN(distance)) throw new TypeError(`invalid distance ${distance}`);
+        if (distance == 0) return { point: this, finalBearing: NaN, iterations: 0 };
+        if (isNaN(initialBearing)) throw new TypeError(`invalid bearing ${initialBearing}`);
         if (this.height != 0) throw new RangeError('point must be on the surface of the ellipsoid');
 
         const φ1 = this.lat.toRadians(), λ1 = this.lon.toRadians();
-        const α1 = initialBearing.toRadians();
-        const s = distance;
+        const α1 = Number(initialBearing).toRadians();
+        const s = Number(distance);
 
         // allow alternative ellipsoid to be specified
         const ellipsoid = this.datum ? this.datum.ellipsoid : LatLonEllipsoidal.ellipsoids.WGS84;
@@ -175,22 +203,23 @@ class LatLonEllipsoidal_Vincenty extends LatLonEllipsoidal {
         const cosα1 = Math.cos(α1);
 
         const tanU1 = (1-f) * Math.tan(φ1), cosU1 = 1 / Math.sqrt((1 + tanU1*tanU1)), sinU1 = tanU1 * cosU1;
-        const σ1 = Math.atan2(tanU1, cosα1);
-        const sinα = cosU1 * sinα1;
+        const σ1 = Math.atan2(tanU1, cosα1); // σ1 = angular distance on the sphere from the equator to P1
+        const sinα = cosU1 * sinα1;          // α = azimuth of the geodesic at the equator
         const cosSqα = 1 - sinα*sinα;
         const uSq = cosSqα * (a*a - b*b) / (b*b);
         const A = 1 + uSq/16384*(4096+uSq*(-768+uSq*(320-175*uSq)));
         const B = uSq/1024 * (256+uSq*(-128+uSq*(74-47*uSq)));
 
-        let cos2σM = null, sinσ = null, cosσ = null, Δσ = null;
+        let σ = s / (b*A), sinσ = null, cosσ = null, Δσ = null; // σ = angular distance P₁ P₂ on the sphere
+        let cos2σₘ = null; // σₘ = angular distance on the sphere from the equator to the midpoint of the line
 
-        let σ = s / (b*A), σʹ, iterations = 0;
+        let σʹ = null, iterations = 0;
         do {
-            cos2σM = Math.cos(2*σ1 + σ);
+            cos2σₘ = Math.cos(2*σ1 + σ);
             sinσ = Math.sin(σ);
             cosσ = Math.cos(σ);
-            Δσ = B*sinσ*(cos2σM+B/4*(cosσ*(-1+2*cos2σM*cos2σM)-
-                B/6*cos2σM*(-3+4*sinσ*sinσ)*(-3+4*cos2σM*cos2σM)));
+            Δσ = B*sinσ*(cos2σₘ+B/4*(cosσ*(-1+2*cos2σₘ*cos2σₘ)-
+                B/6*cos2σₘ*(-3+4*sinσ*sinσ)*(-3+4*cos2σₘ*cos2σₘ)));
             σʹ = σ;
             σ = s / (b*A) + Δσ;
         } while (Math.abs(σ-σʹ) > 1e-12 && ++iterations<100);
@@ -200,7 +229,7 @@ class LatLonEllipsoidal_Vincenty extends LatLonEllipsoidal {
         const φ2 = Math.atan2(sinU1*cosσ + cosU1*sinσ*cosα1, (1-f)*Math.sqrt(sinα*sinα + x*x));
         const λ = Math.atan2(sinσ*sinα1, cosU1*cosσ - sinU1*sinσ*cosα1);
         const C = f/16*cosSqα*(4+f*(4-3*cosSqα));
-        const L = λ - (1-C) * f * sinα * (σ + C*sinσ*(cos2σM+C*cosσ*(-1+2*cos2σM*cos2σM)));
+        const L = λ - (1-C) * f * sinα * (σ + C*sinσ*(cos2σₘ+C*cosσ*(-1+2*cos2σₘ*cos2σₘ)));
         const λ2 = λ1 + L;
 
         const α2 = Math.atan2(sinα, -x);
@@ -239,30 +268,34 @@ class LatLonEllipsoidal_Vincenty extends LatLonEllipsoidal {
         const ellipsoid = this.datum ? this.datum.ellipsoid : LatLonEllipsoidal.ellipsoids.WGS84;
         const { a, b, f } = ellipsoid;
 
-        const L = λ2 - λ1;
+        const L = λ2 - λ1; // L = difference in longitude, U = reduced latitude, defined by tan U = (1-f)·tanφ.
         const tanU1 = (1-f) * Math.tan(φ1), cosU1 = 1 / Math.sqrt((1 + tanU1*tanU1)), sinU1 = tanU1 * cosU1;
         const tanU2 = (1-f) * Math.tan(φ2), cosU2 = 1 / Math.sqrt((1 + tanU2*tanU2)), sinU2 = tanU2 * cosU2;
 
-        let sinλ = null, cosλ = null, sinσ = 0, cosσ = 0, sinα = null;
-        let sinSqσ = null, cosSqα = 0, cos2σM = 0, σ = null, C = null;
+        const antipodal = Math.abs(L) > π/2 || Math.abs(φ2-φ1) > π/2;
 
-        let λ = L, λʹ, iterations = 0;
-        const antimeridian = Math.abs(L) > π;
+        let λ = L, sinλ = null, cosλ = null; // λ = difference in longitude on an auxiliary sphere
+        let σ = antipodal ? π : 0, sinσ = 0, cosσ = antipodal ? -1 : 1, sinSqσ = null; // σ = angular distance P₁ P₂ on the sphere
+        let cos2σₘ = 1;                      // σₘ = angular distance on the sphere from the equator to the midpoint of the line
+        let sinα = null, cosSqα = 1;         // α = azimuth of the geodesic at the equator
+        let C = null;
+
+        let λʹ = null, iterations = 0;
         do {
             sinλ = Math.sin(λ);
             cosλ = Math.cos(λ);
             sinSqσ = (cosU2*sinλ) * (cosU2*sinλ) + (cosU1*sinU2-sinU1*cosU2*cosλ) * (cosU1*sinU2-sinU1*cosU2*cosλ);
-            if (Math.abs(sinSqσ) < Number.EPSILON) break;  // co-incident points
+            if (Math.abs(sinSqσ) < ε) break;  // co-incident/antipodal points (falls back on λ/σ = L)
             sinσ = Math.sqrt(sinSqσ);
             cosσ = sinU1*sinU2 + cosU1*cosU2*cosλ;
             σ = Math.atan2(sinσ, cosσ);
             sinα = cosU1 * cosU2 * sinλ / sinσ;
             cosSqα = 1 - sinα*sinα;
-            cos2σM = (cosSqα != 0) ? (cosσ - 2*sinU1*sinU2/cosSqα) : 0; // on equatorial line cos²α = 0 (§6)
+            cos2σₘ = (cosSqα != 0) ? (cosσ - 2*sinU1*sinU2/cosSqα) : 0; // on equatorial line cos²α = 0 (§6)
             C = f/16*cosSqα*(4+f*(4-3*cosSqα));
             λʹ = λ;
-            λ = L + (1-C) * f * sinα * (σ + C*sinσ*(cos2σM+C*cosσ*(-1+2*cos2σM*cos2σM)));
-            const iterationCheck = antimeridian ? Math.abs(λ)-π : Math.abs(λ);
+            λ = L + (1-C) * f * sinα * (σ + C*sinσ*(cos2σₘ+C*cosσ*(-1+2*cos2σₘ*cos2σₘ)));
+            const iterationCheck = antipodal ? Math.abs(λ)-π : Math.abs(λ);
             if (iterationCheck > π) throw new EvalError('λ > π');
         } while (Math.abs(λ-λʹ) > 1e-12 && ++iterations<1000);
         if (iterations >= 1000) throw new EvalError('Vincenty formula failed to converge');
@@ -270,18 +303,22 @@ class LatLonEllipsoidal_Vincenty extends LatLonEllipsoidal {
         const uSq = cosSqα * (a*a - b*b) / (b*b);
         const A = 1 + uSq/16384*(4096+uSq*(-768+uSq*(320-175*uSq)));
         const B = uSq/1024 * (256+uSq*(-128+uSq*(74-47*uSq)));
-        const Δσ = B*sinσ*(cos2σM+B/4*(cosσ*(-1+2*cos2σM*cos2σM)-
-            B/6*cos2σM*(-3+4*sinσ*sinσ)*(-3+4*cos2σM*cos2σM)));
+        const Δσ = B*sinσ*(cos2σₘ+B/4*(cosσ*(-1+2*cos2σₘ*cos2σₘ)-
+            B/6*cos2σₘ*(-3+4*sinσ*sinσ)*(-3+4*cos2σₘ*cos2σₘ)));
 
-        const s = b*A*(σ-Δσ);
+        const s = b*A*(σ-Δσ); // s = length of the geodesic
 
-        const α1 = Math.atan2(cosU2*sinλ,  cosU1*sinU2-sinU1*cosU2*cosλ);
-        const α2 = Math.atan2(cosU1*sinλ, -sinU1*cosU2+cosU1*sinU2*cosλ);
+        // note special handling of exactly antipodal points where sin²σ = 0 (due to discontinuity
+        // atan2(0, 0) = 0 but atan2(ε, 0) = π/2 / 90°) - in which case bearing is always meridional,
+        // due north (or due south!)
+        // α = azimuths of the geodesic; α2 the direction P₁ P₂ produced
+        const α1 = Math.abs(sinSqσ) < ε ? 0 : Math.atan2(cosU2*sinλ,  cosU1*sinU2-sinU1*cosU2*cosλ);
+        const α2 = Math.abs(sinSqσ) < ε ? π : Math.atan2(cosU1*sinλ, -sinU1*cosU2+cosU1*sinU2*cosλ);
 
         return {
             distance:       s,
-            initialBearing: Math.abs(s) < Number.EPSILON ? NaN : Dms.wrap360(α1.toDegrees()),
-            finalBearing:   Math.abs(s) < Number.EPSILON ? NaN : Dms.wrap360(α2.toDegrees()),
+            initialBearing: Math.abs(s) < ε ? NaN : Dms.wrap360(α1.toDegrees()),
+            finalBearing:   Math.abs(s) < ε ? NaN : Dms.wrap360(α2.toDegrees()),
             iterations:     iterations,
         };
     }

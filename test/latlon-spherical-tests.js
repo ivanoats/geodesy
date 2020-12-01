@@ -1,11 +1,12 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
-/* Geodesy Test Harness - latlon-spherical                            (c) Chris Veness 2014-2019  */
+/* Geodesy Test Harness - latlon-spherical                            (c) Chris Veness 2014-2020  */
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
 
 import LatLon, { Dms } from '../latlon-spherical.js';
 
 if (typeof window == 'undefined') { // node
-    import('chai').then(chai => global.should = chai.should());
+    const chai = await import('chai');
+    global.should = chai.should();
 } else {                           // browser
     window.should = chai.should();
 }
@@ -49,6 +50,10 @@ describe('latlon-spherical', function() {
         test('toString d',            () => greenwich.toString().should.equal('51.4779°N, 000.0015°W'));
         test('toString dms',          () => greenwich.toString('dms', 2).should.equal('51°28′40.37″N, 000°00′05.29″W'));
         test('toString lat,lon',      () => greenwich.toString('n').split(',').should.deep.equal([ '51.4779', '-0.0015' ]));
+    });
+
+    describe('constructor with strings', function() {
+        test('distanceTo d',  () => new LatLon('52.205', '0.119').distanceTo(new LatLon('48.857', '2.351')).toFixed().should.equal('404279'));
     });
 
     describe('constructor fail', function() {
@@ -180,6 +185,7 @@ describe('latlon-spherical', function() {
         test('int’n (fail 3)',                () => should.Throw(function() { LatLon.intersection(stn, 'n', cdg, 's'); }, TypeError, 'invalid brng1 ‘n’'));
         test('int’n (fail 4)',                () => should.Throw(function() { LatLon.intersection(stn, 0, cdg, 's'); }, TypeError, 'invalid brng2 ‘s’'));
         test('rounding errors',               () => LatLon.intersection(new LatLon(51, 0), 120, new LatLon(50, 0), 60).toString().should.equal('50.4921°N, 001.3612°E'));
+        test('rounding: φ3 requires clamp #71', () => LatLon.intersection(new LatLon(-77.6966041375563, 18.2812500000000), 179.99999999999995, new LatLon(89, 180), 180).toString().should.equal('90.0000°S, 163.9902°W'));
     });
 
     describe('cross-track / along-track', function() {
@@ -201,7 +207,8 @@ describe('latlon-spherical', function() {
         test('along-track SW',       () => new LatLon(-1, -1).alongTrackDistanceTo(new LatLon(0, 0), new LatLon(0, 2)).toPrecision(4).should.equal('-1.112e+5'));
         test('along-track NW',       () => new LatLon( 1, -1).alongTrackDistanceTo(new LatLon(0, 0), new LatLon(0, 2)).toPrecision(4).should.equal('-1.112e+5')); // eslint-disable-line space-in-parens
 
-        test('cross-track coinc',    () => new LatLon(10, 0).crossTrackDistanceTo(new LatLon(10, 0), new LatLon(0, 2)).should.be.NaN);
+        test('cross-track coinc',    () => new LatLon(10, 0).crossTrackDistanceTo(new LatLon(10, 0), new LatLon(0, 2)).should.equal(0));
+        test('along-track coinc',    () => new LatLon(10, 0).alongTrackDistanceTo(new LatLon(10, 0), new LatLon(0, 2)).should.equal(0));
         test('cross-track (fail)',   () => should.Throw(function() { new LatLon(0, 0).crossTrackDistanceTo(null, 0); }, TypeError, 'invalid (null) point'));
         test('cross-track (fail)',   () => should.Throw(function() { new LatLon(0, 0).crossTrackDistanceTo(new LatLon(0, 0), 'x'); }, TypeError, 'invalid point ‘x’'));
         test('along-track (fail)',   () => should.Throw(function() { new LatLon(0, 0).alongTrackDistanceTo(null, 0); }, TypeError, 'invalid (null) point'));
