@@ -101,19 +101,7 @@
         "error"
       ],
       "no-case-declarations": "warn",
-<<<<<<< HEAD
-      "no-console": [
-        "warn",
-        {
-          "allow": [
-            "error",
-            "info"
-          ]
-        }
-      ],
-=======
       "no-console": [ "warn", { "allow": [ "error", "info", "debug" ] } ],
->>>>>>> master
       "no-irregular-whitespace": "warn",
       "no-redeclare": "warn",
       "no-shadow": "warn",
@@ -124,35 +112,12 @@
         "always"
       ],
       "prefer-const": "error",
-<<<<<<< HEAD
-      "quotes": [
-        "error",
-        "single",
-        "avoid-escape"
-      ],
-      "semi": [
-        "error",
-        "always"
-      ],
-      "space-before-blocks": [
-        "error",
-        "always"
-      ],
-      "space-in-parens": [
-        "error"
-      ],
-      "strict": [
-        "error",
-        "global"
-      ]
-=======
       "quotes": [ "error", "single", "avoid-escape" ],
       "require-await": "error",
       "semi": [ "error", "always" ],
       "space-before-blocks": [ "error", "always" ],
       "space-in-parens": [ "error" ],
       "strict": [ "error", "global" ]
->>>>>>> master
     }
   },
   "babel": {
