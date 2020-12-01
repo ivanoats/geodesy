@@ -4,11 +4,12 @@
 
 import Dms from '../dms.js';
 
+const should = require('chai').should;
+
 if (typeof window == 'undefined') { // node
-    const chai = await import('chai');
-    global.should = chai.should();
+    global.should = should();
 } else {                            // browser
-    window.should = chai.should();
+    window.should = should();
 }
 
 
